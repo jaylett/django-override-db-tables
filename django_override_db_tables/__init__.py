@@ -1,9 +1,19 @@
+import threading
+
+
+# Are we currently running within a context processor override?
+thread_data = threading.local()
+# Lock between different stacks of overrides in different threads.
+lock = threading.Lock()
+
+
 class OverrideDatabaseTables(object):
     """
     Context manager for temporarily overriding models'
     ORM database tables (Meta.db_table) used in queries.
 
-    Cannot be used recursively, but that should be obvious.
+    This isn't re-entrant; you cannot use the same object
+    recursively. However you can use different ones.
     """
 
     def __init__(self, *args):
@@ -21,6 +31,15 @@ class OverrideDatabaseTables(object):
         )
 
     def __enter__(self):
+        # inside an override! at the top of the stack (ie not
+        # previously overridden) we need
+        try:
+            thread_data.depth += 1
+        except AttributeError:
+            thread_data.depth = 1
+        if thread_data.depth == 1:
+            lock.acquire()
+
         # first we store the old db tables so we can restore them
         self.old_mapping = dict(
             (
@@ -38,6 +57,14 @@ class OverrideDatabaseTables(object):
         # reset db tables back to whatever they were before
         for k, v in self.old_mapping.items():
             k._meta.db_table = v
+
+        try:
+            thread_data.depth -= 1
+        except:
+            pass
+
+        if thread_data.depth == 0:
+            lock.release()
 
         # and don't prevent propagation of exceptions
         return False
