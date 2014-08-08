@@ -1,6 +1,8 @@
 from django.db import models
 from django.test import TestCase
 from django_override_db_tables import OverrideDatabaseTables
+import threading
+import time
 
 
 class TestModel(models.Model):
@@ -96,6 +98,113 @@ class Tests(TestCase):
             """WHERE "pigeon"."name" = James """,
             str(qset.query),
         )
+
+
+class Concurrency(TestCase):
+    """Test that overrides in multiple threads won't conflict."""
+
+    def test_two_threads(self):
+        # Both are moved gradually through their sequence by
+        # having this (the main) thread repeatedly release
+        # a semaphore that prevents them moving further forward.
+        #
+        # This both served to demonstrate the problem of interleved
+        # context processors, *and* still works once each thread's
+        # stack of context processors uses a lock to prevent them
+        # running concurrently.
+        sequence = []
+
+        def log_position(thread, position):
+            where = "%s%s" % (thread, position)
+            sequence.append(where)
+            # print(where)
+
+        def first(semaphore):
+            first.as_expected = False
+            semaphore.acquire(True)
+            with OverrideDatabaseTables(TestModel, 'columbidae'):
+                log_position('f', 'I')
+                qset = TestModel.objects.filter(name='Nick')
+                if (
+                    """SELECT "columbidae"."id", "columbidae"."name" """
+                    """FROM "columbidae" """
+                    """WHERE "columbidae"."name" = Nick """ !=
+                    str(qset.query)
+                ):
+                    return
+            log_position('f', 'II')
+            qset = TestModel.objects.filter(name='James')
+            if (
+                """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
+                """WHERE "pigeon"."name" = James """ !=
+                str(qset.query)
+            ):
+                return
+
+            first.as_expected = True
+
+        def second(semaphore):
+            second.as_expected = False
+            with OverrideDatabaseTables(TestModel, 'skyrat'):
+                log_position('s', 'I')
+                semaphore.acquire(True)
+                qset = TestModel.objects.filter(name='Katia')
+                if (
+                    """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+                    """WHERE "skyrat"."name" = Katia """ !=
+                    str(qset.query)
+                ):
+                    return
+
+                log_position('s', 'II')
+
+            qset = TestModel.objects.filter(name='James')
+            if (
+                """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
+                """WHERE "pigeon"."name" = James """ !=
+                str(qset.query)
+            ):
+                return
+
+            second.as_expected = True
+
+        sem1 = threading.Semaphore()
+        sem2 = threading.Semaphore()
+        sem1.acquire(True)
+        sem2.acquire(True)
+
+        first_thread = threading.Thread(target=first, args=[sem1])
+        second_thread = threading.Thread(target=second, args=[sem2])
+        first_thread.daemon = True
+        second_thread.daemon = True
+
+        first_thread.start()
+        second_thread.start()
+
+        # The second thread will run until it is inside its
+        # context processor. Let's make sure we give it time
+        # to get there before unblocking the first thread.
+        time.sleep(1)
+        # Let the first thread run through everything.
+        sem1.release()
+        # And let the second thread run to completion.
+        sem2.release()
+
+        # and wait for both to complete
+        first_thread.join()
+        second_thread.join()
+
+        self.assertEqual(True, first.as_expected)
+        self.assertEqual(True, second.as_expected)
+        # Check that the operations were carried out in the correct
+        # order
+        # self.assertEqual(
+        #     [ 'fI', 'sI', 'fII', 'sII' ],
+        #     sequence
+        # )
+
+        # then check that everything has been reset correctly
+        qset = TestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
             """WHERE "pigeon"."name" = James """,
