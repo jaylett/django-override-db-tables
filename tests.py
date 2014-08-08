@@ -65,6 +65,37 @@ class Tests(TestCase):
             """WHERE "pigeon"."name" = James """,
             str(qset.query),
         )
+
+    def test_nesting(self):
+        with OverrideDatabaseTables(TestModel, 'skyrat'):
+            qset = TestModel.objects.filter(name='Katia')
+            self.assertEqual(
+                """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+                """WHERE "skyrat"."name" = Katia """,
+                str(qset.query),
+            )
+            with OverrideDatabaseTables(TestModel, 'columbidae'):
+                qset2 = TestModel.objects.filter(name='Nick')
+                self.assertEqual(
+                    """SELECT "columbidae"."id", "columbidae"."name" """
+                    """FROM "columbidae" """
+                    """WHERE "columbidae"."name" = Nick """,
+                    str(qset2.query),
+                )
+            qset3 = TestModel.objects.filter(name='Katia')
+            self.assertEqual(
+                """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+                """WHERE "skyrat"."name" = Katia """,
+                str(qset3.query),
+            )
+
+        # and resets correctly at the end
+        qset = TestModel.objects.filter(name='James')
+        self.assertEqual(
+            """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
+            """WHERE "pigeon"."name" = James """,
+            str(qset.query),
+        )
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
             """WHERE "pigeon"."name" = James """,
