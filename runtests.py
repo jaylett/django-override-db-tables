@@ -15,7 +15,7 @@ if __name__ == "__main__":
     from django.test.runner import DiscoverRunner
     test_runner = DiscoverRunner(verbosity=1, failfast=False)
 
-    failures = test_runner.run_tests(['tests.Tests'])
+    failures = test_runner.run_tests(['tests'])
 
     if failures:
         sys.exit(failures)
