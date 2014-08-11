@@ -7,7 +7,7 @@ thread_data = threading.local()
 lock = threading.Lock()
 
 
-class OverrideDatabaseTables(object):
+class LockingOverrideDatabaseTables(object):
     """
     Context manager for temporarily overriding models'
     ORM database tables (Meta.db_table) used in queries.
@@ -19,7 +19,7 @@ class OverrideDatabaseTables(object):
     def __init__(self, *args):
         if len(args) % 2 != 0:
             raise ValueError(
-                "OverrideDatabaseTables takes pairs of arguments: "
+                "LockingOverrideDatabaseTables takes pairs of arguments: "
                 "<model>, <db_table_name>"
             )
 
@@ -52,6 +52,12 @@ class OverrideDatabaseTables(object):
         # then we perform the overrides
         for k, v in self.mapping.items():
             k._meta.db_table = v
+
+        models = self.mapping.keys()
+        if len(models) == 1:
+            return models[0]
+        else:
+            return models
 
     def __exit__(self, exc_type, exc_value, traceback):
         # reset db tables back to whatever they were before

@@ -1,6 +1,8 @@
 from django.db import models
 from django.test import TestCase
-from django_override_db_tables import OverrideDatabaseTables
+from django_override_db_tables import (
+    LockingOverrideDatabaseTables,
+)
 import threading
 import time
 
@@ -13,7 +15,8 @@ class TestModel(models.Model):
         app_label = 'test'
 
 
-class Tests(TestCase):
+class LockingOverrideTests(TestCase):
+    """Test LockingOverrideDatabaseTables."""
 
     def test_success(self):
         qset = TestModel.objects.filter(name='James')
@@ -22,7 +25,7 @@ class Tests(TestCase):
             """WHERE "pigeon"."name" = James """,
             str(qset.query),
         )
-        with OverrideDatabaseTables(TestModel, 'skyrat'):
+        with LockingOverrideDatabaseTables(TestModel, 'skyrat'):
             # existing queryset should be unaffected
             self.assertEqual(
                 """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
@@ -54,7 +57,7 @@ class Tests(TestCase):
 
     def test_exception(self):
         try:
-            with OverrideDatabaseTables(TestModel, 'skyrat'):
+            with LockingOverrideDatabaseTables(TestModel, 'skyrat'):
                 raise ValueError
             self.fail("Should have raised a ValueError.")
         except ValueError:
@@ -69,14 +72,14 @@ class Tests(TestCase):
         )
 
     def test_nesting(self):
-        with OverrideDatabaseTables(TestModel, 'skyrat'):
+        with LockingOverrideDatabaseTables(TestModel, 'skyrat'):
             qset = TestModel.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
                 """WHERE "skyrat"."name" = Katia """,
                 str(qset.query),
             )
-            with OverrideDatabaseTables(TestModel, 'columbidae'):
+            with LockingOverrideDatabaseTables(TestModel, 'columbidae'):
                 qset2 = TestModel.objects.filter(name='Nick')
                 self.assertEqual(
                     """SELECT "columbidae"."id", "columbidae"."name" """
@@ -100,7 +103,7 @@ class Tests(TestCase):
         )
 
 
-class Concurrency(TestCase):
+class LockingOverrideConcurrency(TestCase):
     """Test that overrides in multiple threads won't conflict."""
 
     def test_two_threads(self):
@@ -122,7 +125,7 @@ class Concurrency(TestCase):
         def first(semaphore):
             first.as_expected = False
             semaphore.acquire(True)
-            with OverrideDatabaseTables(TestModel, 'columbidae'):
+            with LockingOverrideDatabaseTables(TestModel, 'columbidae'):
                 log_position('f', 'I')
                 qset = TestModel.objects.filter(name='Nick')
                 if (
@@ -145,7 +148,7 @@ class Concurrency(TestCase):
 
         def second(semaphore):
             second.as_expected = False
-            with OverrideDatabaseTables(TestModel, 'skyrat'):
+            with LockingOverrideDatabaseTables(TestModel, 'skyrat'):
                 log_position('s', 'I')
                 semaphore.acquire(True)
                 qset = TestModel.objects.filter(name='Katia')
