@@ -188,10 +188,14 @@ class LockingOverrideConcurrency(TestCase):
         # context processor. Let's make sure we give it time
         # to get there before unblocking the first thread.
         time.sleep(1)
-        # Let the first thread run through everything.
+        # Let the first thread run through everything. It won't,
+        # because by then the second thread will have obtained the
+        # global lock on overrides.
         sem1.release()
         # And let the second thread run to completion.
         sem2.release()
+        # At this point, it releases the global lock and the first
+        # thread can run to completion.
 
         # and wait for both to complete
         first_thread.join()
@@ -201,10 +205,20 @@ class LockingOverrideConcurrency(TestCase):
         self.assertEqual(True, second.as_expected)
         # Check that the operations were carried out in the correct
         # order
+        #
+        # This is what it should look like without locking:
+        #
         # self.assertEqual(
-        #     [ 'fI', 'sI', 'fII', 'sII' ],
+        #     [ 'sI', 'fI', 'fII', 'sII' ],
         #     sequence
         # )
+        #
+        # This is what it looks like with locking:
+        #
+        self.assertEqual(
+            ['sI', 'sII', 'fI', 'fII'],
+            sequence
+        )
 
         # then check that everything has been reset correctly
         qset = TestModel.objects.filter(name='James')
