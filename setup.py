@@ -10,6 +10,8 @@ VERSION = '0.1'
 setup(
     name=PACKAGE, version=VERSION,
     description="Context manager for overriding Django ORM database tables.",
+    author='Rockabox Media Ltd',
+    author_email='tech@rockabox.com',
     packages=[
         'django_override_db_tables',
     ],
