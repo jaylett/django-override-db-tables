@@ -2,6 +2,7 @@ from django.db import models
 from django.test import TestCase
 from django_override_db_tables import (
     LockingOverrideDatabaseTables,
+    ReplaceDatabaseTable,
 )
 import threading
 import time
@@ -226,4 +227,150 @@ class LockingOverrideConcurrency(TestCase):
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
             """WHERE "pigeon"."name" = James """,
             str(qset.query),
+        )
+
+
+class AbstractTestModel(models.Model):
+    name = models.CharField(max_length=20)
+
+    class Meta:
+        abstract = True
+        db_table = 'pigeon'
+        app_label = 'test'
+
+
+class ReplaceTests(TestCase):
+    """Test ReplaceDatabaseTable."""
+
+    # almost identical to LockingOverrideTests, but needs the return from
+    # the context manager, and has to be based on the AbstractTestModel
+    # (so we don't care about resetting the db table of anything we
+    # replace the db table of).
+
+    def test_success(self):
+        with ReplaceDatabaseTable(AbstractTestModel, 'skyrat') as TM:
+            qset = TM.objects.filter(name='Katia')
+            self.assertEqual(
+                """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+                """WHERE "skyrat"."name" = Katia """,
+                str(qset.query),
+            )
+
+        # qset was created inside the context manager, and will have
+        # resolved tables already
+        self.assertEqual(
+            """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+            """WHERE "skyrat"."name" = Katia """,
+            str(qset.query),
+        )
+
+    def test_exception(self):
+        try:
+            with ReplaceDatabaseTable(AbstractTestModel, 'skyrat'):
+                raise ValueError
+            self.fail("Should have raised a ValueError.")
+        except ValueError:
+            pass
+
+    def test_nesting(self):
+        with ReplaceDatabaseTable(AbstractTestModel, 'skyrat') as TM:
+            qset = TM.objects.filter(name='Katia')
+            self.assertEqual(
+                """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+                """WHERE "skyrat"."name" = Katia """,
+                str(qset.query),
+            )
+            with ReplaceDatabaseTable(AbstractTestModel, 'columbidae') as TM2:
+                qset2 = TM2.objects.filter(name='Nick')
+                self.assertEqual(
+                    """SELECT "columbidae"."id", "columbidae"."name" """
+                    """FROM "columbidae" """
+                    """WHERE "columbidae"."name" = Nick """,
+                    str(qset2.query),
+                )
+            qset3 = TM.objects.filter(name='Katia')
+            self.assertEqual(
+                """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+                """WHERE "skyrat"."name" = Katia """,
+                str(qset3.query),
+            )
+
+
+class ReplaceConcurrency(TestCase):
+    """Test that replace in multiple threads won't conflict."""
+
+    def test_two_threads(self):
+        # Both are moved gradually through their sequence by
+        # having this (the main) thread repeatedly release
+        # a semaphore that prevents them moving further forward.
+        #
+        # Could probably be done more simply, but this works and
+        # matches LockingOverrideConcurrency, above.
+        sequence = []
+
+        def log_position(thread, position):
+            where = "%s%s" % (thread, position)
+            sequence.append(where)
+            # print(where)
+
+        def first(sem1, sem2):
+            first.as_expected = False
+            sem1.acquire(True)
+            with ReplaceDatabaseTable(AbstractTestModel, 'columbidae') as TM:
+                log_position('f', 'I')
+                qset = TM.objects.filter(name='Nick')
+                if (
+                    """SELECT "columbidae"."id", "columbidae"."name" """
+                    """FROM "columbidae" """
+                    """WHERE "columbidae"."name" = Nick """ !=
+                    str(qset.query)
+                ):
+                    return
+            log_position('f', 'II')
+            sem2.release()
+
+            first.as_expected = True
+
+        def second(sem1, sem2):
+            second.as_expected = False
+            with ReplaceDatabaseTable(AbstractTestModel, 'skyrat') as TM:
+                log_position('s', 'I')
+                sem1.release()
+                sem2.acquire(True)
+                qset = TM.objects.filter(name='Katia')
+                if (
+                    """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
+                    """WHERE "skyrat"."name" = Katia """ !=
+                    str(qset.query)
+                ):
+                    return
+
+                log_position('s', 'II')
+
+            second.as_expected = True
+
+        sem1 = threading.Semaphore()
+        sem2 = threading.Semaphore()
+        sem1.acquire(True)
+        sem2.acquire(True)
+
+        first_thread = threading.Thread(target=first, args=[sem1, sem2])
+        second_thread = threading.Thread(target=second, args=[sem1, sem2])
+        first_thread.daemon = True
+        second_thread.daemon = True
+
+        first_thread.start()
+        second_thread.start()
+
+        # and wait for both to complete
+        first_thread.join()
+        second_thread.join()
+
+        self.assertEqual(True, first.as_expected)
+        self.assertEqual(True, second.as_expected)
+        # Check that the operations were carried out in the correct
+        # order
+        self.assertEqual(
+            ['sI', 'fI', 'fII', 'sII'],
+            sequence
         )

@@ -74,3 +74,44 @@ class LockingOverrideDatabaseTables(object):
 
         # and don't prevent propagation of exceptions
         return False
+
+
+class ReplaceDatabaseTable(object):
+    """
+    Context manager for creating a new (temporary) model,
+    from an abstract model, with a specific db_table.
+
+    Fully re-entrant, thread-safe and lock-free since it doesn't
+    actually alter anything, only create new objects.
+    """
+
+    def __init__(self, model, db_table):
+        self.model = model
+        self.db_table = db_table
+
+    def __enter__(self):
+
+        def replace_database_table(model, db_table):
+            # Thank you Python...
+            _db_table = db_table
+
+            class DbTableSwappingMetaclass(models.base.ModelBase):
+                def __new__(cls, name, bases, attrs):
+                    name += '--x-dbtable-overridden--' + db_table
+                    return models.base.ModelBase.__new__(
+                        cls, name, bases, attrs
+                    )
+
+            class ModelWithSwappedDbTable(model):
+                __metaclass__ = DbTableSwappingMetaclass
+
+                class Meta(model.Meta):
+                    db_table = _db_table
+
+            return ModelWithSwappedDbTable
+
+        return replace_database_table(self.model, self.db_table)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # allow exceptions to propagate
+        return False
