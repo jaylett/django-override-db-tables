@@ -111,6 +111,9 @@ class ReplaceDatabaseTable(object):
         self.db_table = db_table
 
     def __enter__(self):
+        # Metaclass technique taken from
+        # <http://stackoverflow.com/questions/5036357/> with some
+        # minor improvements.
 
         def replace_database_table(model, db_table):
             # Thank you Python...
