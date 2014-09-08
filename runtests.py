@@ -4,12 +4,20 @@ if __name__ == "__main__":
 
     settings.configure(
         DEBUG=True,
+        MIDDLEWARE_CLASSES=[],
         DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.sqlite3',
             },
         },
     )
+
+    # for Django 1.7
+    import django
+    try:
+        django.setup()
+    except AttributeError:
+        pass
 
     # after we have some settings
     from django.test.runner import DiscoverRunner

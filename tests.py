@@ -25,37 +25,37 @@ class LockingOverrideTests(TestCase):
         qset = TestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
         with LockingOverrideDatabaseTables(TestModel, 'skyrat'):
             # existing queryset should be unaffected
             self.assertEqual(
                 """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-                """WHERE "pigeon"."name" = James """,
-                str(qset.query),
+                """WHERE "pigeon"."name" = James""",
+                str(qset.query).strip(),
             )
             # but new ones should use the override
             qset = TestModel.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset.query).strip(),
             )
 
         # qset was created inside the context manager, and will have
         # resolved tables already
         self.assertEqual(
             """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-            """WHERE "skyrat"."name" = Katia """,
-            str(qset.query),
+            """WHERE "skyrat"."name" = Katia""",
+            str(qset.query).strip(),
         )
         # however a new one will be back to normal
         qset = TestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
 
     def test_exception(self):
@@ -70,8 +70,8 @@ class LockingOverrideTests(TestCase):
         qset = TestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
 
     def test_nesting(self):
@@ -79,30 +79,30 @@ class LockingOverrideTests(TestCase):
             qset = TestModel.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset.query).strip(),
             )
             with LockingOverrideDatabaseTables(TestModel, 'columbidae'):
                 qset2 = TestModel.objects.filter(name='Nick')
                 self.assertEqual(
                     """SELECT "columbidae"."id", "columbidae"."name" """
                     """FROM "columbidae" """
-                    """WHERE "columbidae"."name" = Nick """,
-                    str(qset2.query),
+                    """WHERE "columbidae"."name" = Nick""",
+                    str(qset2.query).strip(),
                 )
             qset3 = TestModel.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset3.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset3.query).strip(),
             )
 
         # and resets correctly at the end
         qset = TestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
 
 
@@ -134,16 +134,16 @@ class LockingOverrideConcurrency(TestCase):
                 if (
                     """SELECT "columbidae"."id", "columbidae"."name" """
                     """FROM "columbidae" """
-                    """WHERE "columbidae"."name" = Nick """ !=
-                    str(qset.query)
+                    """WHERE "columbidae"."name" = Nick""" !=
+                    str(qset.query).strip()
                 ):
                     return
             log_position('f', 'II')
             qset = TestModel.objects.filter(name='James')
             if (
                 """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-                """WHERE "pigeon"."name" = James """ !=
-                str(qset.query)
+                """WHERE "pigeon"."name" = James""" !=
+                str(qset.query).strip()
             ):
                 return
 
@@ -157,8 +157,8 @@ class LockingOverrideConcurrency(TestCase):
                 qset = TestModel.objects.filter(name='Katia')
                 if (
                     """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                    """WHERE "skyrat"."name" = Katia """ !=
-                    str(qset.query)
+                    """WHERE "skyrat"."name" = Katia""" !=
+                    str(qset.query).strip()
                 ):
                     return
 
@@ -167,8 +167,8 @@ class LockingOverrideConcurrency(TestCase):
             qset = TestModel.objects.filter(name='James')
             if (
                 """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-                """WHERE "pigeon"."name" = James """ !=
-                str(qset.query)
+                """WHERE "pigeon"."name" = James""" !=
+                str(qset.query).strip()
             ):
                 return
 
@@ -227,8 +227,8 @@ class LockingOverrideConcurrency(TestCase):
         qset = TestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
 
 
@@ -254,16 +254,16 @@ class ReplaceTests(TestCase):
             qset = TM.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset.query).strip(),
             )
 
         # qset was created inside the context manager, and will have
         # resolved tables already
         self.assertEqual(
             """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-            """WHERE "skyrat"."name" = Katia """,
-            str(qset.query),
+            """WHERE "skyrat"."name" = Katia""",
+            str(qset.query).strip(),
         )
 
     def test_exception(self):
@@ -279,22 +279,22 @@ class ReplaceTests(TestCase):
             qset = TM.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset.query).strip(),
             )
             with ReplaceDatabaseTable(AbstractTestModel, 'columbidae') as TM2:
                 qset2 = TM2.objects.filter(name='Nick')
                 self.assertEqual(
                     """SELECT "columbidae"."id", "columbidae"."name" """
                     """FROM "columbidae" """
-                    """WHERE "columbidae"."name" = Nick """,
-                    str(qset2.query),
+                    """WHERE "columbidae"."name" = Nick""",
+                    str(qset2.query).strip(),
                 )
             qset3 = TM.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset3.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset3.query).strip(),
             )
 
 
@@ -324,8 +324,8 @@ class ReplaceConcurrency(TestCase):
                 if (
                     """SELECT "columbidae"."id", "columbidae"."name" """
                     """FROM "columbidae" """
-                    """WHERE "columbidae"."name" = Nick """ !=
-                    str(qset.query)
+                    """WHERE "columbidae"."name" = Nick""" !=
+                    str(qset.query).strip()
                 ):
                     return
             log_position('f', 'II')
@@ -342,8 +342,8 @@ class ReplaceConcurrency(TestCase):
                 qset = TM.objects.filter(name='Katia')
                 if (
                     """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                    """WHERE "skyrat"."name" = Katia """ !=
-                    str(qset.query)
+                    """WHERE "skyrat"."name" = Katia""" !=
+                    str(qset.query).strip()
                 ):
                     return
 
@@ -396,37 +396,37 @@ class OverrideTests(TestCase):
         qset = OverridableTestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
         with OverrideDatabaseTables(OverridableTestModel, 'skyrat'):
             # existing queryset should be unaffected
             self.assertEqual(
                 """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-                """WHERE "pigeon"."name" = James """,
-                str(qset.query),
+                """WHERE "pigeon"."name" = James""",
+                str(qset.query).strip(),
             )
             # but new ones should use the override
             qset = OverridableTestModel.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset.query).strip(),
             )
 
         # qset was created inside the context manager, and will have
         # resolved tables already
         self.assertEqual(
             """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-            """WHERE "skyrat"."name" = Katia """,
-            str(qset.query),
+            """WHERE "skyrat"."name" = Katia""",
+            str(qset.query).strip(),
         )
         # however a new one will be back to normal
         qset = OverridableTestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
 
     def test_exception(self):
@@ -441,8 +441,8 @@ class OverrideTests(TestCase):
         qset = OverridableTestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
 
     def test_nesting(self):
@@ -450,30 +450,30 @@ class OverrideTests(TestCase):
             qset = OverridableTestModel.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset.query).strip(),
             )
             with OverrideDatabaseTables(OverridableTestModel, 'columbidae'):
                 qset2 = OverridableTestModel.objects.filter(name='Nick')
                 self.assertEqual(
                     """SELECT "columbidae"."id", "columbidae"."name" """
                     """FROM "columbidae" """
-                    """WHERE "columbidae"."name" = Nick """,
-                    str(qset2.query),
+                    """WHERE "columbidae"."name" = Nick""",
+                    str(qset2.query).strip(),
                 )
             qset3 = OverridableTestModel.objects.filter(name='Katia')
             self.assertEqual(
                 """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                """WHERE "skyrat"."name" = Katia """,
-                str(qset3.query),
+                """WHERE "skyrat"."name" = Katia""",
+                str(qset3.query).strip(),
             )
 
         # and resets correctly at the end
         qset = OverridableTestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
 
 
@@ -503,8 +503,8 @@ class OverrideConcurrency(TestCase):
                 if (
                     """SELECT "columbidae"."id", "columbidae"."name" """
                     """FROM "columbidae" """
-                    """WHERE "columbidae"."name" = Nick """ !=
-                    str(qset.query)
+                    """WHERE "columbidae"."name" = Nick""" !=
+                    str(qset.query).strip()
                 ):
                     return
             log_position('f', 'II')
@@ -512,8 +512,8 @@ class OverrideConcurrency(TestCase):
             qset = OverridableTestModel.objects.filter(name='James')
             if (
                 """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-                """WHERE "pigeon"."name" = James """ !=
-                str(qset.query)
+                """WHERE "pigeon"."name" = James""" !=
+                str(qset.query).strip()
             ):
                 print str(qset.query)
                 return
@@ -529,8 +529,8 @@ class OverrideConcurrency(TestCase):
                 qset = OverridableTestModel.objects.filter(name='Katia')
                 if (
                     """SELECT "skyrat"."id", "skyrat"."name" FROM "skyrat" """
-                    """WHERE "skyrat"."name" = Katia """ !=
-                    str(qset.query)
+                    """WHERE "skyrat"."name" = Katia""" !=
+                    str(qset.query).strip()
                 ):
                     return
 
@@ -539,8 +539,8 @@ class OverrideConcurrency(TestCase):
             qset = OverridableTestModel.objects.filter(name='James')
             if (
                 """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-                """WHERE "pigeon"."name" = James """ !=
-                str(qset.query)
+                """WHERE "pigeon"."name" = James""" !=
+                str(qset.query).strip()
             ):
                 return
 
@@ -576,6 +576,6 @@ class OverrideConcurrency(TestCase):
         qset = OverridableTestModel.objects.filter(name='James')
         self.assertEqual(
             """SELECT "pigeon"."id", "pigeon"."name" FROM "pigeon" """
-            """WHERE "pigeon"."name" = James """,
-            str(qset.query),
+            """WHERE "pigeon"."name" = James""",
+            str(qset.query).strip(),
         )
