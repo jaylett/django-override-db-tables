@@ -125,7 +125,7 @@ class ReplaceDatabaseTable(object):
         # minor improvements.
 
         def replace_database_table(model, db_table):
-            # Thank you Python...
+            # Make accessible in the class definition's scope
             _db_table = db_table
 
             class DbTableSwappingMetaclass(models.base.ModelBase):
