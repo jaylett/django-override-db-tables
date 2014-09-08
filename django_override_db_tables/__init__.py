@@ -18,8 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import threading
 from django.db import models
+import thread
+import threading
+import time
 
 
 # Are we currently running within a context processor override?
@@ -104,6 +106,13 @@ class ReplaceDatabaseTable(object):
 
     Fully re-entrant, thread-safe and lock-free since it doesn't
     actually alter anything, only create new objects.
+
+    The only fiddly bit is ensuring that the model name (in _meta)
+    is unique, which we do by appending a combination of the timestamp
+    and a thread identifier. (The latter isn't going to be a problem
+    in CPython because of the GIL, but other implementations could
+    have two threads executing at the same timestamp even with the
+    subsecond timing that most platforms should now support.)
     """
 
     def __init__(self, model, db_table):
@@ -121,7 +130,13 @@ class ReplaceDatabaseTable(object):
 
             class DbTableSwappingMetaclass(models.base.ModelBase):
                 def __new__(cls, name, bases, attrs):
-                    name += '--x-dbtable-overridden--' + db_table
+                    name += (
+                        '--x-dbtable-overridden--%s-%f-%i' % (
+                            db_table,
+                            time.time(),
+                            thread.get_ident(),
+                        )
+                    )
                     return models.base.ModelBase.__new__(
                         cls, name, bases, attrs
                     )
